@@ -317,7 +317,7 @@
         .menu-overlay.hidden { display: none; }
         
         .menu-card {
-            background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            background: linear-gradient(145deg, #0f0c29, #302b63, #24243e);
             border: 1px solid rgba(255,255,255,0.2);
             border-radius: 25px;
             padding: 40px;
@@ -523,7 +523,7 @@
     <!-- Main Menu -->
     <div id="mainMenu" class="menu-overlay">
         <div class="menu-card">
-            <h2 class="menu-title">🟡 PACMAN BATTLE</h2>
+            <h2 class="menu-title">PACMAN BATTLE v2.0</h2>
             <p style="color: #888; margin-bottom: 20px;">2-8 Players • 2 Minutes • Winner Takes All</p>
             
             <input type="text" class="input-field" id="playerName" placeholder="Enter your name" maxlength="12">
@@ -584,8 +584,8 @@
         // Global Error Handler for Android Debugging
         window.onerror = function(msg, url, line, col, error) {
            const errDiv = document.createElement('div');
-           errDiv.style.cssText = 'position:fixed; top:0; left:0; right:0; background:rgba(255,0,0,0.9); color:white; padding:20px; z-index:9999; font-family:monospace; font-size:12px; white-space:pre-wrap;';
-           errDiv.textContent = `ERROR: ${msg}\nLine: ${line}:${col}\nURL: ${url}\nStack: ${error && error.stack}`;
+           errDiv.style.cssText = 'position:fixed; top:0; left:0; right:0; background:rgba(0,0,255,0.9); color:white; padding:20px; z-index:9999; font-family:monospace; font-size:12px; white-space:pre-wrap;';
+           errDiv.textContent = `ERROR (v2.0): ${msg}\nLine: ${line}:${col}\nURL: ${url}\nStack: ${error && error.stack}`;
            document.body.appendChild(errDiv);
            return false;
         };
