@@ -18,7 +18,6 @@ jobs:
           node-version: '18'
 
       - name: Install Dependencies
-        working-directory: ./projects/pacman-battle
         run: |
           npm install
           npx cap add android
@@ -31,11 +30,11 @@ jobs:
           java-version: '17'
 
       - name: Build APK with Gradle
-        working-directory: ./projects/pacman-battle/android
+        working-directory: android
         run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v3
         with:
           name: pacman-battle-debug
-          path: projects/pacman-battle/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
