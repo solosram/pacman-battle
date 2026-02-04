@@ -532,11 +532,11 @@
             <div class="achievements-grid" id="menuAchievements"></div>
             
             <div style="display: flex; gap: 10px; justify-content: center; width: 100%;">
-                <button class="btn" onclick="joinGame('battle')" style="flex: 1; padding: 18px 10px; font-size: 16px;">⚔️ BATTLE</button>
-                <button class="btn btn-secondary" onclick="joinGame('practice')" style="flex: 1; padding: 18px 10px; font-size: 16px;">🎯 SOLO</button>
+                <button class="btn" id="btnBattle" style="flex: 1; padding: 18px 10px; font-size: 16px;">⚔️ BATTLE</button>
+                <button class="btn btn-secondary" id="btnSolo" style="flex: 1; padding: 18px 10px; font-size: 16px;">🎯 SOLO</button>
             </div>
             
-            <button class="btn btn-secondary" onclick="showHowToPlay()" style="margin-top: 5px; font-size: 14px; padding: 12px 30px; border: none; color: #888;">HOW TO PLAY</button>
+            <button class="btn btn-secondary" id="btnHowToPlay" style="margin-top: 5px; font-size: 14px; padding: 12px 30px; border: none; color: #888;">HOW TO PLAY</button>
         </div>
     </div>
     
@@ -554,8 +554,8 @@
             
             <div class="achievements-grid" id="endAchievements"></div>
             
-            <button class="btn" onclick="playAgain()">PLAY AGAIN</button>
-            <button class="btn btn-secondary" onclick="backToMenu()">MAIN MENU</button>
+            <button class="btn" id="btnPlayAgain">PLAY AGAIN</button>
+            <button class="btn btn-secondary" id="btnBackToMenu">MAIN MENU</button>
         </div>
     </div>
     
@@ -576,7 +576,7 @@
                 • 💎 Rare - Instant +50 pts<br><br>
                 🔥 <b>Combo:</b> Eat fast for multipliers!
             </p>
-            <button class="btn" onclick="hideHowToPlay()">GOT IT!</button>
+            <button class="btn" id="btnGotIt">GOT IT!</button>
         </div>
     </div>
 
@@ -794,8 +794,8 @@
             }
         }
         
-        // Menu functions
-        window.joinGame = function(mode = 'battle') {
+        // Menu functions (No longer attached to window, used directly via event listeners)
+        function joinGame(mode = 'battle') {
             const name = document.getElementById('playerName').value.trim();
             
             if (!name) {
@@ -810,26 +810,49 @@
             if (mode === 'battle') unlockAchievement('firstBlood');
             
             game.init(name, mode);
-        };
+        }
         
-        window.showHowToPlay = function() {
+        function showHowToPlay() {
             document.getElementById('howToPlay').classList.remove('hidden');
-        };
+        }
         
-        window.hideHowToPlay = function() {
+        function hideHowToPlay() {
             document.getElementById('howToPlay').classList.add('hidden');
-        };
+        }
         
-        window.playAgain = function() {
+        function playAgain() {
             document.getElementById('gameOverMenu').classList.add('hidden');
             game.init(localPlayer.name);
-        };
+        }
         
-        window.backToMenu = function() {
+        function backToMenu() {
             document.getElementById('gameOverMenu').classList.add('hidden');
             document.getElementById('mainMenu').classList.remove('hidden');
             location.reload();
-        };
+        }
+
+        // Attach Event Listeners (Safe for Android WebView)
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM Content Loaded - Attaching Listeners');
+            
+            // Main Menu
+            document.getElementById('btnBattle')?.addEventListener('click', () => joinGame('battle'));
+            document.getElementById('btnSolo')?.addEventListener('click', () => joinGame('practice'));
+            document.getElementById('btnHowToPlay')?.addEventListener('click', showHowToPlay);
+            
+            // How To Play
+            document.getElementById('btnGotIt')?.addEventListener('click', hideHowToPlay);
+            
+            // Game Over
+            document.getElementById('btnPlayAgain')?.addEventListener('click', playAgain);
+            document.getElementById('btnBackToMenu')?.addEventListener('click', backToMenu);
+            
+            // Show Version Indicator
+            const verDiv = document.createElement('div');
+            verDiv.style.cssText = 'position:fixed; bottom:5px; right:5px; color:#444; font-size:10px; pointer-events:none;';
+            verDiv.textContent = 'v1.3 (Fixed)';
+            document.body.appendChild(verDiv);
+        });
         
         // Game Engine Events
         game.on('state', (state) => {
