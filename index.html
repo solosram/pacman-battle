@@ -575,7 +575,8 @@
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- Standalone Game Engine -->
+    <script src="js/game-engine.js"></script>
     <script>
         // Game Constants
         const GRID_SIZE = 20;
@@ -686,10 +687,9 @@
             }
         }
         
-        // Socket connection
-        const socket = io();
-        let myPlayerId = null;
-        let currentRoom = null;
+        // Initialize Game Engine
+        const game = new GameEngine();
+        let myPlayerId = 'local_player'; // Fixed ID for local mode
         let gameState = null;
         let particles = [];
         
@@ -783,22 +783,20 @@
         // Menu functions
         function joinGame() {
             const name = document.getElementById('playerName').value.trim();
-            let room = document.getElementById('roomCode').value.trim().toUpperCase();
+            // Room code ignored in standalone
             
             if (!name) {
                 alert('Please enter your name!');
                 return;
             }
             
-            if (!room) {
-                room = Math.random().toString(36).substring(2, 8).toUpperCase();
-            }
-            
             localPlayer.name = name;
             saveData();
             
-            currentRoom = room;
-            socket.emit('joinRoom', { roomId: room, playerName: name });
+            document.getElementById('mainMenu').classList.add('hidden');
+            unlockAchievement('firstBlood');
+            
+            game.init(name);
         }
         
         function showHowToPlay() {
@@ -811,7 +809,7 @@
         
         function playAgain() {
             document.getElementById('gameOverMenu').classList.add('hidden');
-            socket.emit('startGame');
+            game.init(localPlayer.name);
         }
         
         function backToMenu() {
@@ -820,50 +818,31 @@
             location.reload();
         }
         
-        // Socket events
-        socket.on('joinedRoom', ({ roomId, playerId }) => {
-            myPlayerId = playerId;
-            document.getElementById('mainMenu').classList.add('hidden');
-            unlockAchievement('firstBlood');
-            
-            // Auto start if first player
-            socket.emit('startGame');
-        });
-        
-        socket.on('roomFull', () => {
-            alert('Room is full! Try another room code.');
-        });
-        
-        socket.on('gameState', (state) => {
+        // Game Engine Events
+        game.on('state', (state) => {
             gameState = state;
             updateUI(state);
             render();
         });
         
-        socket.on('levelUp', ({ playerId, level }) => {
-            if (playerId === myPlayerId) {
-                playSound('levelup');
-                showComboPopup('LEVEL UP!');
-                if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
-            }
+        game.on('dotEaten', (value) => {
+            playSound('eat');
+            if (value > 1) playSound('eatBig');
         });
-        
-        socket.on('powerUpCollected', ({ playerId, powerUp }) => {
-            if (playerId === myPlayerId) {
-                playSound('powerup');
-                createParticles(CANVAS_SIZE/2, CANVAS_SIZE/2, powerUp.color, 20);
-                
-                if (powerUp.type === 'speed') unlockAchievement('speedDemon');
-                if (powerUp.type === 'ghost') unlockAchievement('ghost');
-            }
+
+        game.on('powerUp', (powerUp) => {
+            playSound('powerup');
+            createParticles(CANVAS_SIZE/2, CANVAS_SIZE/2, powerUp.color, 20);
+            if (powerUp.type === 'speed') unlockAchievement('speedDemon');
+            if (powerUp.type === 'ghost') unlockAchievement('ghost');
         });
         
         // Track consecutive kills for status messages
         let consecutiveKills = 0;
         let killTimer = null;
         
-        socket.on('playerKilled', ({ killer, victim, killFeed }) => {
-            if (killer === myPlayerId) {
+        game.on('kill', ({ killer, victim }) => {
+            if (killer.id === myPlayerId) {
                 playSound('kill');
                 unlockAchievement('killer');
                 showComboPopup('KILL! +30');
@@ -873,14 +852,12 @@
                 clearTimeout(killTimer);
                 killTimer = setTimeout(() => {
                     consecutiveKills = 0;
-                }, 5000); // Reset after 5 seconds
+                }, 5000);
                 
-                // Show status message
                 showStatusMessage(consecutiveKills);
             }
             
-            // Update kill feed display
-            updateKillFeed(killFeed);
+            // Note: Killfeed is now part of state
         });
         
         function showStatusMessage(kills) {
@@ -897,7 +874,6 @@
                 statusDiv.textContent = messages[kills].text;
                 statusDiv.className = `status-message ${messages[kills].class} show`;
                 
-                // Extra effects for higher kills
                 if (kills >= 3) {
                     createExplosion(CANVAS_SIZE/2, CANVAS_SIZE/2, '#FFE66D');
                     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -912,41 +888,18 @@
             }
         }
         
-        function updateKillFeed(killFeed) {
-            const container = document.getElementById('killFeed');
-            container.innerHTML = '';
-            
-            killFeed.forEach(kill => {
-                const div = document.createElement('div');
-                div.className = 'kill-feed-item';
-                div.innerHTML = `
-                    <span class="kill-feed-killer" style="color: ${kill.killerColor}">${kill.killer}</span>
-                    <span style="color: #FF6B6B"> 💀 </span>
-                    <span class="kill-feed-victim" style="color: ${kill.victimColor}">${kill.victim}</span>
-                `;
-                container.appendChild(div);
-            });
-            
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                container.innerHTML = '';
-            }, 5000);
-        }
-        
-        socket.on('gameEnded', ({ leaderboard, winner }) => {
+        game.on('end', ({ winner, stats }) => {
             document.getElementById('gameOverMenu').classList.remove('hidden');
-            document.getElementById('finalScore').textContent = gameState.players.find(p => p.id === myPlayerId)?.score || 0;
+            document.getElementById('finalScore').textContent = stats.score;
             document.getElementById('winnerName').textContent = winner.name;
             
-            const myPlayer = gameState.players.find(p => p.id === myPlayerId);
-            const myScore = myPlayer?.score || 0;
-            document.getElementById('xpGain').textContent = `+${Math.floor(myScore / 10)} XP`;
-            localPlayer.xp += Math.floor(myScore / 10);
+            document.getElementById('xpGain').textContent = `+${Math.floor(stats.score / 10)} XP`;
+            localPlayer.xp += Math.floor(stats.score / 10);
             localPlayer.totalGames++;
-            localPlayer.totalKills += myPlayer?.kills || 0;
-            localPlayer.totalDotsEaten += myPlayer?.dotsEaten || 0;
+            localPlayer.totalKills += stats.kills || 0;
+            localPlayer.totalDotsEaten += stats.dots || 0;
             
-            if (winner.id === myPlayerId) {
+            if (winner.isBot === false) { // Local player won
                 unlockAchievement('winner');
                 localPlayer.wins++;
                 localPlayer.streak++;
@@ -954,46 +907,27 @@
                     localPlayer.bestStreak = localPlayer.streak;
                 }
                 
-                // Play win sound
                 playSound('win');
-                
-                // Victory effect
                 createExplosion(CANVAS_SIZE/2, CANVAS_SIZE/2, '#FFE66D');
                 
-                // Streak bonuses
                 if (localPlayer.streak >= 3) {
                     showComboPopup(`${localPlayer.streak} WIN STREAK! 🔥`);
                     playSound('streak');
-                    localPlayer.xp += localPlayer.streak * 10; // Bonus XP
-                    
-                    // Extra particles for streak
+                    localPlayer.xp += localPlayer.streak * 10;
                     setTimeout(() => createExplosion(CANVAS_SIZE/2, CANVAS_SIZE/2, '#FF6B6B'), 200);
-                    setTimeout(() => createExplosion(CANVAS_SIZE/2, CANVAS_SIZE/2, '#4ECDC4'), 400);
                 }
             } else {
-                localPlayer.streak = 0; // Reset streak on loss
+                localPlayer.streak = 0;
             }
             
-            if (myScore >= 500) {
-                unlockAchievement('rich');
-            }
-            
-            // Check level achievements
+            if (stats.score >= 500) unlockAchievement('rich');
             if (localPlayer.level >= 10) unlockAchievement('master');
             if (localPlayer.level >= 50) unlockAchievement('legend');
             
             renderAchievements('endAchievements');
             saveData();
             
-            // Show detailed stats if available
-            if (stats) {
-                showDetailedStats(stats);
-            }
-            
-            // Show streak info
-            if (localPlayer.streak > 0) {
-                showStreakInfo();
-            }
+            if (localPlayer.streak > 0) showStreakInfo();
         });
         
         function showStreakInfo() {
@@ -1013,7 +947,6 @@
             const card = document.querySelector('.menu-card');
             card.insertBefore(streakDiv, document.getElementById('endAchievements'));
             
-            // Remove after animation
             setTimeout(() => {
                 streakDiv.style.transition = 'all 0.5s';
                 streakDiv.style.opacity = '0';
@@ -1021,56 +954,28 @@
             }, 3000);
         }
         
-        function showDetailedStats(stats) {
-            // Create or update stats display
-            let statsDiv = document.getElementById('detailedStats');
-            if (!statsDiv) {
-                statsDiv = document.createElement('div');
-                statsDiv.id = 'detailedStats';
-                statsDiv.style.cssText = `
-                    margin: 15px 0;
-                    padding: 15px;
-                    background: rgba(0,0,0,0.5);
-                    border-radius: 12px;
-                    font-size: 13px;
-                `;
-                document.querySelector('.menu-card').insertBefore(statsDiv, document.getElementById('endAchievements'));
-            }
-            
-            statsDiv.innerHTML = `
-                <div style="color: #888; margin-bottom: 10px;">📊 MATCH STATS</div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div>💀 Kills: ${stats.totalKills || 0}</div>
-                    <div>⚡ Power-ups: ${stats.powerUpsCollected || 0}</div>
-                    <div>🎯 Dots eaten: ${stats.totalDotsEaten || 0}</div>
-                    <div>👑 Winner: ${stats.fastestPlayer?.name || '-'}</div>
-                </div>
-            `;
-        }
-        
-        // UI Updates
+        // UI Updates (Reuse existing structure, just ensuring safety)
         function updateUI(state) {
             const me = state.players.find(p => p.id === myPlayerId);
             if (!me) return;
             
-            // Update stats
             document.getElementById('scoreDisplay').textContent = me.score;
-            document.getElementById('levelDisplay').textContent = me.level;
+            document.getElementById('levelDisplay').textContent = me.level || 1;
             
             const comboMult = getComboMultiplier(me.combo);
             document.getElementById('comboDisplay').textContent = `x${comboMult}`;
             
-            // Update level progress
-            const xpNeeded = me.level * 100;
+            // Level progress (mock calculation based on fixed values for now)
+            const xpNeeded = (me.level || 1) * 100;
             const progress = (localPlayer.xp % xpNeeded) / xpNeeded * 100;
             document.getElementById('levelProgress').style.width = `${progress}%`;
             
-            // Update timer
+            // Timer
             const minutes = Math.floor(state.timeRemaining / 60);
-            const seconds = state.timeRemaining % 60;
+            const seconds = Math.floor(state.timeRemaining % 60);
             document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
-            // Update leaderboard
+            // Leaderboard
             const lbList = document.getElementById('leaderboardList');
             lbList.innerHTML = '';
             state.leaderboard.slice(0, 5).forEach((player, i) => {
@@ -1085,7 +990,7 @@
                 lbList.appendChild(div);
             });
             
-            // Update power-ups
+            // Power-ups
             const puIndicator = document.getElementById('powerUpIndicator');
             puIndicator.innerHTML = '';
             me.activePowerUps.forEach(pu => {
@@ -1097,7 +1002,20 @@
                 puIndicator.appendChild(badge);
             });
             
-            // Check achievements
+            // Kill Feed (from state)
+            const kfContainer = document.getElementById('killFeed');
+            kfContainer.innerHTML = '';
+            state.killFeed.forEach(kill => {
+                 const div = document.createElement('div');
+                div.className = 'kill-feed-item';
+                div.innerHTML = `
+                    <span class="kill-feed-killer" style="font-weight:700">${kill.killer}</span>
+                    <span style="color: #FF6B6B"> 💀 </span>
+                    <span class="kill-feed-victim" style="opacity:0.7">${kill.victim}</span>
+                `;
+                kfContainer.appendChild(div);
+            });
+
             if (me.combo >= 5) unlockAchievement('comboMaster');
         }
         
@@ -1116,7 +1034,7 @@
             setTimeout(() => popup.classList.remove('show'), 1500);
         }
         
-        // Enhanced particle system
+        // ... (Particle system reused from original) ...
         function createParticles(x, y, color, count, type = 'normal') {
             for (let i = 0; i < count; i++) {
                 const angle = (Math.PI * 2 * i) / count;
@@ -1137,15 +1055,10 @@
         }
         
         function createExplosion(x, y, color) {
-            // Main explosion
             createParticles(x, y, color, 20, 'explosion');
-            
-            // Secondary particles
             setTimeout(() => {
                 createParticles(x, y, '#FFFFFF', 10, 'sparkle');
             }, 100);
-            
-            // Shockwave effect (visual only, via canvas in render)
             shockwaves.push({ x, y, radius: 0, maxRadius: 50, life: 1 });
         }
         
@@ -1161,8 +1074,6 @@
                 p.rotation += p.rotationSpeed;
                 return p.life > 0;
             });
-            
-            // Update shockwaves
             shockwaves = shockwaves.filter(s => {
                 s.radius += 2;
                 s.life -= 0.05;
@@ -1247,7 +1158,7 @@
                 ctx.fillStyle = player.color;
                 ctx.beginPath();
                 
-                // Pacman shape with mouth animation
+                // Pacman shape
                 const mouthOpen = Math.abs(Math.sin(Date.now() / 100)) * 0.3;
                 let startAngle, endAngle;
                 
@@ -1318,7 +1229,7 @@
                 ctx.fillStyle = p.color;
                 
                 if (p.type === 'explosion') {
-                    // Star shape for explosions
+                    // Star shape
                     ctx.save();
                     ctx.translate(p.x, p.y);
                     ctx.rotate(p.rotation);
@@ -1344,14 +1255,8 @@
         }
         
         // Controls
-        let lastMoveTime = 0;
-        const MOVE_DELAY = 100;
-        
         function handleMove(direction) {
-            const now = Date.now();
-            if (now - lastMoveTime < MOVE_DELAY) return;
-            lastMoveTime = now;
-            socket.emit('move', direction);
+            game.movePlayer(direction);
         }
         
         // Tap controls
@@ -1408,24 +1313,22 @@
                     handleMove(dy > 0 ? 'down' : 'up');
                 }
             } else {
-                // Tap to move toward
-                const rect = canvas.getBoundingClientRect();
-                const x = e.changedTouches[0].clientX - rect.left;
-                const y = e.changedTouches[0].clientY - rect.top;
-                
-                const me = gameState?.players.find(p => p.id === myPlayerId);
-                if (me) {
+                 // Tap to move toward logic (duplicate of click but for touch)
+                 const rect = canvas.getBoundingClientRect();
+                 const x = e.changedTouches[0].clientX - rect.left;
+                 const y = e.changedTouches[0].clientY - rect.top;
+                 const me = gameState?.players.find(p => p.id === myPlayerId);
+                 if (me) {
                     const myX = me.x * CELL_SIZE + CELL_SIZE / 2;
                     const myY = me.y * CELL_SIZE + CELL_SIZE / 2;
                     const ddx = x - myX;
                     const ddy = y - myY;
-                    
                     if (Math.abs(ddx) > Math.abs(ddy)) {
                         handleMove(ddx > 0 ? 'right' : 'left');
                     } else {
                         handleMove(ddy > 0 ? 'down' : 'up');
                     }
-                }
+                 }
             }
         }, { passive: true });
         
