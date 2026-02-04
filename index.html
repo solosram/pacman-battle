@@ -590,7 +590,6 @@
            return false;
         };
     </script>
-    <!-- Standalone Game Engine -->
     <script src="js/game-engine.js"></script>
     <script>
         // Game Constants
@@ -796,7 +795,7 @@
         }
         
         // Menu functions
-        function joinGame(mode = 'battle') {
+        window.joinGame = function(mode = 'battle') {
             const name = document.getElementById('playerName').value.trim();
             
             if (!name) {
@@ -811,26 +810,26 @@
             if (mode === 'battle') unlockAchievement('firstBlood');
             
             game.init(name, mode);
-        }
+        };
         
-        function showHowToPlay() {
+        window.showHowToPlay = function() {
             document.getElementById('howToPlay').classList.remove('hidden');
-        }
+        };
         
-        function hideHowToPlay() {
+        window.hideHowToPlay = function() {
             document.getElementById('howToPlay').classList.add('hidden');
-        }
+        };
         
-        function playAgain() {
+        window.playAgain = function() {
             document.getElementById('gameOverMenu').classList.add('hidden');
             game.init(localPlayer.name);
-        }
+        };
         
-        function backToMenu() {
+        window.backToMenu = function() {
             document.getElementById('gameOverMenu').classList.add('hidden');
             document.getElementById('mainMenu').classList.remove('hidden');
             location.reload();
-        }
+        };
         
         // Game Engine Events
         game.on('state', (state) => {
