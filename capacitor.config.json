@@ -1,6 +1,6 @@
 {
   "appId": "com.pacmanbattle.game",
   "appName": "Pacman Battle",
-  "webDir": ".",
+  "webDir": "dist",
   "bundledWebRuntime": false
 }

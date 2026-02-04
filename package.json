@@ -4,8 +4,8 @@
   "description": "Standalone offline version of Pacman Battle for APK/Web",
   "main": "index.html",
   "scripts": {
-    "build": "echo 'No build step needed for raw HTML/JS'",
-    "deploy": "gh-pages -d ."
+    "build": "mkdir -p dist/js && cp index.html dist/ && cp js/* dist/js/",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {},
   "devDependencies": {
