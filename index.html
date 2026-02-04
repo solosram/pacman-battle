@@ -526,12 +526,16 @@
             <p style="color: #888; margin-bottom: 20px;">2-8 Players • 2 Minutes • Winner Takes All</p>
             
             <input type="text" class="input-field" id="playerName" placeholder="Enter your name" maxlength="12">
-            <input type="text" class="input-field" id="roomCode" placeholder="Room code (or create new)" maxlength="8">
+            <!-- Room Code removed for standalone mode -->
             
             <div class="achievements-grid" id="menuAchievements"></div>
             
-            <button class="btn" onclick="joinGame()">JOIN BATTLE</button>
-            <button class="btn btn-secondary" onclick="showHowToPlay()">HOW TO PLAY</button>
+            <div style="display: flex; gap: 10px; justify-content: center; width: 100%;">
+                <button class="btn" onclick="joinGame('battle')" style="flex: 1; padding: 18px 10px; font-size: 16px;">⚔️ BATTLE</button>
+                <button class="btn btn-secondary" onclick="joinGame('practice')" style="flex: 1; padding: 18px 10px; font-size: 16px;">🎯 SOLO</button>
+            </div>
+            
+            <button class="btn btn-secondary" onclick="showHowToPlay()" style="margin-top: 5px; font-size: 14px; padding: 12px 30px; border: none; color: #888;">HOW TO PLAY</button>
         </div>
     </div>
     
@@ -781,9 +785,8 @@
         }
         
         // Menu functions
-        function joinGame() {
+        function joinGame(mode = 'battle') {
             const name = document.getElementById('playerName').value.trim();
-            // Room code ignored in standalone
             
             if (!name) {
                 alert('Please enter your name!');
@@ -794,9 +797,9 @@
             saveData();
             
             document.getElementById('mainMenu').classList.add('hidden');
-            unlockAchievement('firstBlood');
+            if (mode === 'battle') unlockAchievement('firstBlood');
             
-            game.init(name);
+            game.init(name, mode);
         }
         
         function showHowToPlay() {
@@ -1313,22 +1316,24 @@
                     handleMove(dy > 0 ? 'down' : 'up');
                 }
             } else {
-                 // Tap to move toward logic (duplicate of click but for touch)
-                 const rect = canvas.getBoundingClientRect();
-                 const x = e.changedTouches[0].clientX - rect.left;
-                 const y = e.changedTouches[0].clientY - rect.top;
-                 const me = gameState?.players.find(p => p.id === myPlayerId);
-                 if (me) {
+                // Tap to move toward
+                const rect = canvas.getBoundingClientRect();
+                const x = e.changedTouches[0].clientX - rect.left;
+                const y = e.changedTouches[0].clientY - rect.top;
+                
+                const me = gameState?.players.find(p => p.id === myPlayerId);
+                if (me) {
                     const myX = me.x * CELL_SIZE + CELL_SIZE / 2;
                     const myY = me.y * CELL_SIZE + CELL_SIZE / 2;
                     const ddx = x - myX;
                     const ddy = y - myY;
+                    
                     if (Math.abs(ddx) > Math.abs(ddy)) {
                         handleMove(ddx > 0 ? 'right' : 'left');
                     } else {
                         handleMove(ddy > 0 ? 'down' : 'up');
                     }
-                 }
+                }
             }
         }, { passive: true });
         

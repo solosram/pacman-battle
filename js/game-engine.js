@@ -249,7 +249,7 @@ class GameEngine {
     if (this.events[event]) this.events[event].forEach(cb => cb(data));
   }
 
-  init(playerName) {
+  init(playerName, mode = 'battle') {
     this.player = {
       id: 'local_player',
       name: playerName,
@@ -257,7 +257,7 @@ class GameEngine {
       x: 0, 
       y: 0,
       score: 0,
-      level: 1, // To be loaded from save
+      level: 1, 
       xp: 0,
       combo: 0,
       activePowerUps: [],
@@ -272,10 +272,12 @@ class GameEngine {
     this.player.x = pos.x;
     this.player.y = pos.y;
     
-    // Generate bots
+    // Generate bots (Only in Battle Mode)
     this.bots = [];
-    for(let i=0; i<4; i++) {
-        this.addBot(i+1);
+    if (mode === 'battle') {
+        for(let i=0; i<4; i++) {
+            this.addBot(i+1);
+        }
     }
     
     this.generateDots();
